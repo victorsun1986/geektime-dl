@@ -1,8 +1,14 @@
 package login
 
 import (
+	"bufio"
+	"encoding/base64"
+	"fmt"
+	"github.com/mmzou/geektime-dl/service"
+	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 
@@ -56,13 +62,13 @@ func (c *Client) InitLoginPage() {
 }
 
 //Login by phone and dpassword
-func (c *Client) Login(phone, password string) *Result {
+func (c *Client) Login(phone, password string, captcha string) *Result {
 	result := &Result{}
 	post := map[string]string{
 		"country":   "86",
 		"cellphone": phone,
 		"password":  password,
-		"captcha":   "",
+		"captcha":   captcha,
 		"remeber":   "1",
 		"platform":  "3",
 		"appid":     "1",
@@ -93,6 +99,92 @@ func (c *Client) Login(phone, password string) *Result {
 		return result
 	}
 
+	//需要获取图形验证码
+	if result.Error.Code == -3005 || result.Error.Code == -3004 {
+
+		url, _ := url.Parse("https://account.geekbang.org")
+		cookies := c.Jar.(*cookiejar.Jar).Cookies(url)
+
+		serverID := ""
+		for _, cookie := range cookies {
+			if cookie.Name == "SERVERID" {
+				serverID = cookie.Value
+			}
+		}
+
+		client := c
+		client.ResetCookieJar()
+		cookies = []*http.Cookie{}
+		cookies = append(cookies, &http.Cookie{
+			Name:   "SERVERID",
+			Value:  serverID,
+			Domain: "." + service.GeekBangCommURL.Host,
+		})
+		client.Jar.SetCookies(service.GeekBangCommURL, cookies)
+
+		header := map[string]string{
+			"Referer":    "https://account.geekbang.org/login",
+			"Accept":     "application/json",
+			"Connection": "keep-alive",
+		}
+
+		result := &Result{}
+
+		body, err := client.Fetch("GET", "https://account.geekbang.org/account/captcha/ticket", nil, header)
+		if err != nil {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "网络请求失败, " + err.Error()
+
+			return result
+		}
+		decodeString := base64.StdEncoding.EncodeToString(body)
+		fmt.Println("请把一下内容复制到浏览器地址栏并回车查看验证码")
+		fmt.Println("data:image/png;base64," + decodeString)
+
+		fmt.Print("请输入验证码并回车")
+		buf := bufio.NewReader(os.Stdin)
+		captcha, err := buf.ReadString('\n')
+		captcha = captcha[0:4]
+
+		post = map[string]string{
+			"captcha": captcha,
+		}
+
+		header = map[string]string{
+			"Referer":    "https://account.geekbang.org/login",
+			"Accept":     "application/json",
+			"Connection": "keep-alive",
+			"Origin":     "https://account.geekbang.org",
+		}
+
+		body, err = client.Fetch("POST", "https://account.geekbang.org/account/check/ticket", post, header)
+		if err != nil {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "网络请求失败, " + err.Error()
+
+			return result
+		}
+		rex, _ := regexp.Compile("\\[\\]")
+		body = rex.ReplaceAll(body, []byte("{}"))
+
+		if err = jsoniter.Unmarshal(body, &result); err != nil {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "发送登录请求错误: " + err.Error()
+
+			return result
+		}
+		if result.Code != 0 {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "验证码验证失败"
+
+			return result
+		}
+		return c.Login(phone, password, captcha)
+	}
 	if result.IsLoginSuccess() {
 		result.parseCookies("https://account.geekbang.org", c.Jar.(*cookiejar.Jar))
 	}

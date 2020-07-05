@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	geekBangCommURL = &url.URL{
+	GeekBangCommURL = &url.URL{
 		Scheme: "https",
 		Host:   "geekbang.org",
 	}
@@ -27,26 +27,26 @@ func NewService(gcid, gcess, serviceID string) *Service {
 	cookies = append(cookies, &http.Cookie{
 		Name:   "GCID",
 		Value:  gcid,
-		Domain: "." + geekBangCommURL.Host,
+		Domain: "." + GeekBangCommURL.Host,
 	})
 	cookies = append(cookies, &http.Cookie{
 		Name:   "GCESS",
 		Value:  gcess,
-		Domain: "." + geekBangCommURL.Host,
+		Domain: "." + GeekBangCommURL.Host,
 	})
 	cookies = append(cookies, &http.Cookie{
 		Name:   "SERVERID",
 		Value:  serviceID,
-		Domain: "." + geekBangCommURL.Host,
+		Domain: "." + GeekBangCommURL.Host,
 	})
-	client.Jar.SetCookies(geekBangCommURL, cookies)
+	client.Jar.SetCookies(GeekBangCommURL, cookies)
 
 	return &Service{client: client}
 }
 
 //Cookies get cookies string
 func (s *Service) Cookies() map[string]string {
-	cookies := s.client.Jar.Cookies(geekBangCommURL)
+	cookies := s.client.Jar.Cookies(GeekBangCommURL)
 
 	cstr := map[string]string{}
 

@@ -9,7 +9,7 @@ import (
 //Login login
 func Login(phone, password string) (gcess string, gcid string, serverID string, err error) {
 	c := login.NewLoginClient()
-	result := c.Login(phone, password)
+	result := c.Login(phone, password, "")
 	if !result.IsLoginSuccess() {
 		return "", "", "", errors.New(result.Error.Msg)
 	}
