@@ -2,8 +2,9 @@ package login
 
 import (
 	"bufio"
-	"encoding/base64"
+	"bytes"
 	"fmt"
+	"github.com/mmzou/geektime-dl/imgcat"
 	"github.com/mmzou/geektime-dl/service"
 	"net/http"
 	"net/http/cookiejar"
@@ -138,9 +139,30 @@ func (c *Client) Login(phone, password string, captcha string) *Result {
 
 			return result
 		}
-		decodeString := base64.StdEncoding.EncodeToString(body)
-		fmt.Println("请把一下内容复制到浏览器地址栏并回车查看验证码")
-		fmt.Println("data:image/png;base64," + decodeString)
+		//decodeString := base64.StdEncoding.EncodeToString(body)
+		//fmt.Println("请把一下内容复制到浏览器地址栏并回车查看验证码")
+		//fmt.Println("data:image/png;base64," + decodeString)
+		//bytes.NewReader(body)
+
+		image, err := imgcat.LoadImage(bytes.NewReader(body))
+
+		if err != nil {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "渲染验证码失败, " + err.Error()
+
+			return result
+		}
+
+		err = image.Render()
+
+		if err != nil {
+			result.Code = -1
+			result.Error.Code = -1
+			result.Error.Msg = "渲染验证码失败, " + err.Error()
+
+			return result
+		}
 
 		fmt.Print("请输入验证码并回车")
 		buf := bufio.NewReader(os.Stdin)
